@@ -1,4 +1,7 @@
 from autoagent.registry import register_tool
+import json
+import os
+from urllib.request import Request, urlopen
 from browsergym.core.action.highlevel import HighLevelActionSet
 from typing import Literal
 from autoagent.environment import DockerEnv, DockerConfig, BrowserEnv, VIEWPORT
@@ -346,6 +349,31 @@ def web_search(context_variables, query: str):
     Args:
         query: The query to search for.
     """
+    provider = os.environ.get("SEARCH_PROVIDER", "bing")
+    if provider == "serper":
+        key = os.environ.get("SERPER_API_KEY")
+        if not key:
+            return "Error: SERPER_API_KEY is required"
+        base_url = (os.environ.get("SERPER_BASE_URL") or "https://google.serper.dev").rstrip("/")
+        url = base_url + "/search"
+        request = Request(
+            url,
+            data=json.dumps({"q": query, "num": 5}).encode("utf-8"),
+            headers={"X-API-KEY": key, "Content-Type": "application/json"},
+        )
+        try:
+            with urlopen(request, timeout=30) as response:
+                data = json.load(response)
+            hits = [
+                {"title": hit.get("title", ""), "url": hit.get("link", ""),
+                 "snippet": hit.get("snippet", "")}
+                for hit in data.get("organic", [])
+            ]
+            return Result(value=json.dumps(hits, ensure_ascii=False))
+        except Exception as error:
+            return f"Error encountered during API search: {type(error).__name__}"
+    if provider != "bing":
+        return "Error: unsupported SEARCH_PROVIDER"
     env: BrowserEnv = context_variables.get("web_env", None)
     assert env is not None, "web_env is not set"
     try:
@@ -456,4 +484,4 @@ if __name__ == "__main__":
     print("******page_down", res.value)
     res = history_back(context_variables)
     print("******history_back", res.value)
-    
+
