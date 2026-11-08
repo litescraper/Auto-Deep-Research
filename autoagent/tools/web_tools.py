@@ -1,4 +1,8 @@
 from autoagent.registry import register_tool
+import json
+import os
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from browsergym.core.action.highlevel import HighLevelActionSet
 from typing import Literal
 from autoagent.environment import DockerEnv, DockerConfig, BrowserEnv, VIEWPORT
@@ -346,6 +350,30 @@ def web_search(context_variables, query: str):
     Args:
         query: The query to search for.
     """
+    provider = os.environ.get("SEARCH_PROVIDER", "bing")
+    if provider == "litescrape":
+        key = os.environ.get("LITESCRAPE_API_KEY")
+        if not key:
+            return "Error: LITESCRAPE_API_KEY is required"
+        base_url = (os.environ.get("LITESCRAPE_BASE_URL") or "https://api.litescrape.com").rstrip("/")
+        url = base_url + "/api/google/search?" + urlencode({"q": query, "num": 5})
+        request = Request(
+            url,
+            headers={"Authorization": f"Bearer {key}"},
+        )
+        try:
+            with urlopen(request, timeout=30) as response:
+                data = json.load(response)
+            hits = [
+                {"title": hit.get("title", ""), "url": hit.get("link", ""),
+                 "snippet": hit.get("snippet", "")}
+                for hit in data.get("organic_results", [])
+            ]
+            return Result(value=json.dumps(hits, ensure_ascii=False))
+        except Exception as error:
+            return f"Error encountered during API search: {type(error).__name__}"
+    if provider != "bing":
+        return "Error: unsupported SEARCH_PROVIDER"
     env: BrowserEnv = context_variables.get("web_env", None)
     assert env is not None, "web_env is not set"
     try:
@@ -456,4 +484,4 @@ if __name__ == "__main__":
     print("******page_down", res.value)
     res = history_back(context_variables)
     print("******history_back", res.value)
-    
+

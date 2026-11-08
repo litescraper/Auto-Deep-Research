@@ -313,3 +313,13 @@ Rome wasn't built in a day. Auto-Deep-Research is built on the [AutoAgent](https
 
 
 
+
+## Optional native Google web search
+
+Set `SEARCH_PROVIDER=litescrape` and `LITESCRAPE_API_KEY` to use the
+API-backed `web_search` tool without a browser session. Optionally set
+`LITESCRAPE_BASE_URL` to the base URL (unset or empty defaults to
+`https://api.litescrape.com`); do not include the route suffix.
+Results contain titles, source URLs, and snippets, not full pages or screenshots.
+Other browser tools still require a browser environment. Without this setting,
+the existing Bing browser search remains unchanged.
